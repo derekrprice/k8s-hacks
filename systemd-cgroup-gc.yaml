@@ -15,7 +15,7 @@ data:
     count=0
     for i in $(runhost ls /sys/fs/cgroup/systemd/system.slice |grep "^run-r"); do
     pod=$(runhost systemctl list-units --type scope --state running $i |cat |sed -n 's/\(.*\)Kubernetes transient mount for \/var\/lib\/kubelet\/pods\/\(.*\)\/volumes\(.*\)/\2/p')
-    if [ ! -e "/var/lib/kubelet/pods/'$pod'" ]; then
+    if [ ! -e "/var/lib/kubelet/pods/$pod" ]; then
       echo -n "Try to stop '$i' systemd scope... "
       runhost systemctl stop $i
       echo "Stopped."
