@@ -1,0 +1,56 @@
+# This DaemonSet that runs a systemd cgroup garbage collection job once an hour to workaround
+# bugs https://github.com/Azure/AKS/issues/750 & https://github.com/kubernetes/kubernetes/issues/64137.
+# Note that these pods run in privileged mode, which can pose a security risk. Use with caution.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-sysctls
+data:
+  node-sysctls: |
+    #!/bin/bash
+    sysctl -w fs.inotify.max_user_watches=525000
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-sysctls
+  labels:
+    tier: management
+    app: node-sysctls
+spec:
+  selector:
+    matchLabels:
+      name: node-sysctls
+  template:
+    metadata:
+      labels:
+        name: node-sysctls
+    spec:
+      hostPID: true
+      containers:
+        - resources:
+            requests:
+              cpu: 5m
+              memory: 500Ki
+            limits:
+              cpu: 5m
+              memory: 10Mi  # This crashes on startup with a 5Mi limit, but only uses about 320Ki after that.
+          securityContext:
+            privileged: true
+          image: ubuntu:16.04
+          name: node-sysctls
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              while true; do
+                /usr/local/bin/node-sysctls
+                sleep 3600 # Run hourly.
+              done
+          volumeMounts:
+            - name: scriptsrc
+              mountPath: /usr/local/bin
+      volumes:
+        - name: scriptsrc
+          configMap:
+            name: node-sysctls
+            defaultMode: 0755

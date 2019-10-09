@@ -17,3 +17,18 @@ Anyhow, this DaemonSet works around the problem by running a script hourly to se
 
 ### Installing
 kubectl apply -f systemd-cgroup-gc.yaml
+
+### Uninstalling
+kubectl delete -f systemd-cgroup-gc.yaml
+
+## systemd-cgroup-gc.yaml
+Simple Daemonset to set sysctl settings on nodes.  Right now it only sets a higher limit for `fs.inotify.max_user_watches`.  I
+think that the only reason that we are encountering watch limit
+issues right now is the same bugs that the `system-cgroup-gc`
+package is working around.
+
+### Installing
+kubectl apply -f node-sysctls.yaml
+
+### Uninstalling
+kubectl delete -f node-sysctls.yaml
