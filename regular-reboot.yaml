@@ -1,4 +1,4 @@
-# This DaemonSet reboots K8s nodes via kured once a week to workaround
+# This DaemonSet reboots K8s nodes via kured approximately once a week to workaround
 # bugs https://github.com/Azure/AKS/issues/750 & https://github.com/kubernetes/kubernetes/issues/64137.
 # Note that you should also be running the system-cgroup-gc DaemonSet, or a weekly reboot may not
 # be sufficient to prevent node failure due to these bugs.
@@ -17,9 +17,14 @@ data:
     #!/bin/bash
 
     # Default Configuration.
-    window_start="0000"
-    window_end="0500"
-    max_uptime=7  # Days
+    window_start="Sunday 0000"
+    window_end="Sunday 0500"
+
+    # This is just large enough not to reboot twice within the same maintenance window.
+    # Removing "Sunday" from window_start & window_end, then changing max_uptime to
+    # "7", would reboot more exactly every 7 days, at the cost of potentially
+    # rebooting on any day of the week.
+    max_uptime=1  # Days.
 
     # Maintenance window is interpreted in this time zone.
     # Also, will not output the same message twice in a row on the same day in this timezone:
