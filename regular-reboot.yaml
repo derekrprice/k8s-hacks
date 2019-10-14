@@ -48,8 +48,8 @@ data:
     # Compare the uptime to our configuration and reboot as requested.
     export TZ=$reference_TZ
     now=$(date +%s)
-    up_since="$(runhost uptime -s) UTC"
     if test $(date -d "$window_start" +%s) -lt $now -a $(date -d "$window_end" +%s) -gt $now; then
+      TZ=UTC up_since="$(runhost uptime -s) UTC"
       if test $(date -d "$up_since + $max_uptime days" +%s) -lt $now; then
         message="Marking node for reboot.  Up since $up_since, which exceeds $max_uptime days."
         echo_daily America/New_York $message
@@ -86,7 +86,7 @@ spec:
               memory: 50Mi  # This crashes on startup with a 5Mi limit, but only uses about 320Ki after that.
           securityContext:
             privileged: true
-          image: ubuntu:16.04
+          image: debian:buster-slim
           name: regular-reboot
           command: ["/bin/bash", "-c"]
           args:
