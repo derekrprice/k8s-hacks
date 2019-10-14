@@ -1,0 +1,106 @@
+# This DaemonSet reboots K8s nodes via kured once a week to workaround
+# bugs https://github.com/Azure/AKS/issues/750 & https://github.com/kubernetes/kubernetes/issues/64137.
+# Note that you should also be running the system-cgroup-gc DaemonSet, or a weekly reboot may not
+# be sufficient to prevent node failure due to these bugs.
+#
+# This Daemonset relies on kured's (the KUbernetes REboot Daemon (https://github.com/weaveworks/kured))
+# /var/run/reboot-required to signal that a reboot is required.  If kured is not installed, the reboot
+# marker file will still be created, but no reboot will happen.
+#
+# Note that these pods run in privileged mode, which can pose a security risk. Use with caution.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: regular-reboot
+data:
+  regular-reboot: |
+    #!/bin/bash
+
+    # Default Configuration.
+    window_start="0000"
+    window_end="0500"
+    max_uptime=7  # Days
+
+    # Maintenance window is interpreted in this time zone.
+    # Also, will not output the same message twice in a row on the same day in this timezone:
+    reference_TZ=America/New_York
+
+    function runhost() {
+      # Runs a process on the host K8s node.
+      nsenter -m/proc/1/ns/mnt "$@"
+    }
+
+    # Don't output the same log message twice in a row on the same day.
+    function echo_daily() {
+      echo $(date +%Y-%m-%d) ":" "$@" >/var/run/new-regular-reboot-message
+
+      if ! diff -s /var/run/last-regular-reboot-message /var/run/new-regular-reboot-message >/dev/null 2>&1; then
+        cat /var/run/new-regular-reboot-message
+        mv /var/run/new-regular-reboot-message /var/run/last-regular-reboot-message
+      fi
+    }
+
+    # Compare the uptime to our configuration and reboot as requested.
+    export TZ=$reference_TZ
+    now=$(date +%s)
+    up_since="$(runhost uptime -s) UTC"
+    if test $(date -d "$window_start" +%s) -lt $now -a $(date -d "$window_end" +%s) -gt $now; then
+      if test $(date -d "$up_since + $max_uptime days" +%s) -lt $now; then
+        message="Marking node for reboot.  Up since $up_since, which exceeds $max_uptime days."
+        echo_daily America/New_York $message
+        echo "$(date) regular-reboot: $message" >>/host/var/run/reboot-required
+      else
+        echo_daily America/New_York "Skipping reboot for node up since $up_since, which is less than $max_uptime days ago."
+      fi
+    fi
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: regular-reboot
+  labels:
+    tier: management
+    app: regular-reboot
+spec:
+  selector:
+    matchLabels:
+      name: regular-reboot
+  template:
+    metadata:
+      labels:
+        name: regular-reboot
+    spec:
+      hostPID: true
+      containers:
+        - resources:
+            requests:
+              cpu: 5m
+              memory: 500Ki
+            limits:
+              cpu: 5m
+              memory: 50Mi  # This crashes on startup with a 5Mi limit, but only uses about 320Ki after that.
+          securityContext:
+            privileged: true
+          image: ubuntu:16.04
+          name: regular-reboot
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              while true; do
+                /usr/local/bin/regular-reboot
+                sleep 3600 # Run hourly.
+              done
+          volumeMounts:
+            - name: scriptsrc
+              mountPath: /usr/local/bin
+            - name: varrun
+              mountPath: /host/var/run
+      volumes:
+        - name: scriptsrc
+          configMap:
+            name: regular-reboot
+            defaultMode: 0755
+        - name: varrun
+          hostPath:
+            path: /var/run
+            type: Directory
