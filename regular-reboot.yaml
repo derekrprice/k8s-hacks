@@ -37,7 +37,7 @@ data:
 
     # Don't output the same log message twice in a row on the same day.
     function echo_daily() {
-      echo $(date +%Y-%m-%d) ":" "$@" >/var/run/new-regular-reboot-message
+      echo $(date +%Y-%m-%d): "$@" >/var/run/new-regular-reboot-message
 
       if ! diff -s /var/run/last-regular-reboot-message /var/run/new-regular-reboot-message >/dev/null 2>&1; then
         cat /var/run/new-regular-reboot-message
@@ -52,11 +52,13 @@ data:
       TZ=UTC up_since="$(runhost uptime -s) UTC"
       if test $(date -d "$up_since + $max_uptime days" +%s) -lt $now; then
         message="Marking node for reboot.  Up since $up_since, which exceeds $max_uptime days."
-        echo_daily America/New_York $message
+        echo_daily $message
         echo "$(date) regular-reboot: $message" >>/host/var/run/reboot-required
       else
-        echo_daily America/New_York "Skipping reboot for node up since $up_since, which is less than $max_uptime days ago."
+        echo_daily "Skipping reboot for node up since $up_since, which is less than $max_uptime days ago."
       fi
+    else
+      echo_daily "Skipping uptime check for node since we are outside its maintenance window."
     fi
 ---
 apiVersion: apps/v1
