@@ -17,14 +17,14 @@ data:
     #!/bin/bash
 
     # Default Configuration.
-    window_start="Sunday 0000"
-    window_end="Sunday 0500"
+    window_start="0000"
+    window_end="0500"
 
     # This is just large enough not to reboot twice within the same maintenance window.
     # Removing "Sunday" from window_start & window_end, then changing max_uptime to
     # "7", would reboot more exactly every 7 days, at the cost of potentially
     # rebooting on any day of the week.
-    max_uptime=1  # Days.
+    max_uptime="6 hours"
 
     # Maintenance window is interpreted in this time zone.
     # Also, will not output the same message twice in a row on the same day in this timezone:
@@ -50,7 +50,7 @@ data:
     now=$(date +%s)
     if test $(date -d "$window_start" +%s) -lt $now -a $(date -d "$window_end" +%s) -gt $now; then
       TZ=UTC up_since="$(runhost uptime -s) UTC"
-      if test $(date -d "$up_since + $max_uptime days" +%s) -lt $now; then
+      if test $(date -d "$up_since + $max_uptime" +%s) -lt $now; then
         message="Marking node for reboot.  Up since $up_since, which exceeds $max_uptime days."
         echo_daily $message
         echo "$(date) regular-reboot: $message" >>/host/var/run/reboot-required
