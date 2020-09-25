@@ -17,8 +17,8 @@ data:
     #!/bin/bash
 
     # Default Configuration.
-    window_start="0000"
-    window_end="0500"
+    window_start="Sunday 0000"
+    window_end="Sunday 0500"
 
     # This is just large enough not to reboot twice within the same maintenance window.
     # Removing "Sunday" from window_start & window_end, then changing max_uptime to
